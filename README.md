@@ -11,3 +11,13 @@ MAKEFUN_INPUT_DIR=/path/to/input MAKEFUN_OUTPUT_DIR=/path/to/output python3 main
 The grader runs `python3 /bot/main.py`; defaults are `/input` and `/output`. It writes `/output/forecast.json`.
 
 The forecast combines observed market-cap ranks and robust recent log-cap momentum with horizon-scaled uncertainty. It leaves explicit probability mass unassigned for coins outside the observed candidate set, including coins launched after the input cutoff. Random draws use a fixed seed, and only the Python standard library is required.
+
+## Test
+
+Run the local integration tests with:
+
+```sh
+python3 -m unittest -v
+```
+
+The tests use synthetic history to check output shape, probability invariants, deterministic output, and handling of a history with no successful marks. They do not replace a backtest against real competition history.
