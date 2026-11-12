@@ -86,6 +86,24 @@ class ForecastIntegrationTests(unittest.TestCase):
         second = self.run_forecast()
         self.assertEqual(first, second)
 
+    def test_validate_task_rejects_non_increasing_reads(self):
+        with self.assertRaisesRegex(ValueError, "strictly increasing"):
+            main.validate_task({
+                "places": 5,
+                "reads": ["2026-01-01T01:00:00Z", "2026-01-01T01:00:00Z"],
+                "output": "forecast.json",
+                "size": {"edges": [1.0, 2.0]},
+            })
+
+    def test_validate_task_rejects_output_path_traversal(self):
+        with self.assertRaisesRegex(ValueError, "filename"):
+            main.validate_task({
+                "places": 5,
+                "reads": ["2026-01-01T01:00:00Z"],
+                "output": "../forecast.json",
+                "size": {"edges": [1.0, 2.0]},
+            })
+
     def test_fails_when_history_has_no_successful_marks(self):
         (self.input_dir / "history.ndjson").write_text(
             json.dumps({"at": "2026-01-01T00:00:00Z", "ok": False, "rows": []})

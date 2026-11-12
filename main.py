@@ -23,6 +23,40 @@ def parse_time(value: str) -> float:
     return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
 
 
+def validate_task(task: dict) -> None:
+    """Reject malformed task metadata before starting the forecast."""
+    if not isinstance(task, dict):
+        raise ValueError("task.json must contain a JSON object")
+    places = task.get("places")
+    reads = task.get("reads")
+    output = task.get("output")
+    size = task.get("size")
+    if not isinstance(places, int) or isinstance(places, bool) or places < 1:
+        raise ValueError("task.places must be a positive integer")
+    if not isinstance(reads, list) or not reads:
+        raise ValueError("task.reads must be a non-empty list")
+    if any(not isinstance(value, str) for value in reads):
+        raise ValueError("every task.reads item must be an ISO timestamp")
+    try:
+        read_times = [parse_time(value) for value in reads]
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("task.reads contains an invalid timestamp") from exc
+    if any(later <= earlier for earlier, later in zip(read_times, read_times[1:])):
+        raise ValueError("task.reads must be strictly increasing")
+    if not isinstance(output, str) or not output or Path(output).name != output:
+        raise ValueError("task.output must be a non-empty filename")
+    edges = size.get("edges") if isinstance(size, dict) else None
+    if not isinstance(edges, list) or any(
+        not isinstance(edge, (int, float))
+        or isinstance(edge, bool)
+        or not math.isfinite(edge)
+        for edge in edges
+    ):
+        raise ValueError("task.size.edges must be a list of finite numbers")
+    if any(later <= earlier for earlier, later in zip(edges, edges[1:])):
+        raise ValueError("task.size.edges must be strictly increasing")
+
+
 def logcap(row: dict) -> float:
     # log10 of cap in SOL, matching the competition's scoring bins.
     return math.log10(int(row["market_cap_lamports"])) - 9.0
@@ -47,6 +81,7 @@ def normal_cdf(x: float, mean: float, sd: float) -> float:
 
 def main() -> None:
     task = json.loads((INPUT_DIR / "task.json").read_text())
+    validate_task(task)
     raw_marks = [json.loads(line) for line in (INPUT_DIR / "history.ndjson").read_text().splitlines() if line.strip()]
     marks = [m for m in raw_marks if m.get("ok") and isinstance(m.get("rows"), list)]
     if not marks:
